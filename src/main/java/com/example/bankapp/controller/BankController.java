@@ -56,6 +56,11 @@ public class BankController {
         model.addAttribute("transactions", bankService.getAllTransactions());
     }
 
+    @GetMapping("/transfer")
+    public String transferGet() {
+        return "redirect:/";
+    }
+
     @PostMapping("/transfer")
     public String transfer(@Valid @ModelAttribute("transferRequest") TransferRequest request,
                            BindingResult bindingResult,
