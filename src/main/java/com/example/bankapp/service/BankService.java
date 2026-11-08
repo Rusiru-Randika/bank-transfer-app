@@ -65,6 +65,11 @@ public class BankService {
         return transactionRepository.findLargeTransfers(min);
     }
 
+    public BigDecimal getTotalSentByAccount(String accountNumber) {
+        BigDecimal total = transactionRepository.getTotalSentByAccount(accountNumber);
+        return total != null ? total : BigDecimal.ZERO;
+    }
+
     public long getSuccessTransactionCount() {
         return transactionRepository.countByStatus(TransactionStatus.SUCCESS);
     }
@@ -127,12 +132,11 @@ public class BankService {
     }
 
     /**
-     * Money transfer between two customers.
-     * Task 10 experiment: runs without an active transaction to see what happens on
-     * failure.
+     * Money transfer between two customers with a 1% bank fee (Task 12).
+     * All three database updates (debit sender, credit receiver, credit bank fee account 999999)
+     * occur in ONE single @Transactional method that rolls back completely on any failure.
      */
     @Transactional(rollbackFor = Exception.class)
-    // @Transactional(propagation = Propagation.SUPPORTS)
     public BankTransaction transfer(String fromAccount, String toAccount, BigDecimal amount, boolean simulateFailure) {
         if (fromAccount == null || toAccount == null || fromAccount.equalsIgnoreCase(toAccount)) {
             throw new BankException("Sender and receiver accounts must be different");
@@ -145,22 +149,34 @@ public class BankService {
         customerRepository.getByAccountNumber(toAccount)
                 .orElseThrow(() -> new AccountNotFoundException(toAccount));
 
-        // Atomic debit with balance check
-        int rowsUpdated = customerRepository.debit(fromAccount, amount);
+        // Verify bank fee account (999999) exists
+        customerRepository.getByAccountNumber(BANK_FEE_ACCOUNT)
+                .orElseThrow(() -> new AccountNotFoundException(BANK_FEE_ACCOUNT));
+
+        // 1% fee calculation
+        BigDecimal fee = amount.multiply(FEE_PERCENTAGE).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalDebit = amount.add(fee);
+
+        // Update 1: Debit sender with amount + 1% fee
+        int rowsUpdated = customerRepository.debit(fromAccount, totalDebit);
         if (rowsUpdated == 0) {
-            // Check if account exists or just had insufficient balance
             customerRepository.getByAccountNumber(fromAccount)
                     .orElseThrow(() -> new AccountNotFoundException(fromAccount));
             throw new InsufficientBalanceException(fromAccount);
         }
 
-        // Check if rollback test was triggered
+        // Rollback test: simulate failure after withdrawal (before deposits)
         if (simulateFailure) {
-            throw new BankException("Simulated system failure occurred: All changes were rolled back!");
+            throw new BankException("Simulated system failure occurred after withdrawal: All changes were rolled back!");
         }
 
-        // Credit receiver
+        // Update 2: Credit receiver with amount
         customerRepository.credit(toAccount, amount);
+
+        // Update 3: Credit bank fee account 999999 with 1% fee
+        if (fee.compareTo(BigDecimal.ZERO) > 0) {
+            customerRepository.credit(BANK_FEE_ACCOUNT, fee);
+        }
 
         // Save SUCCESS transaction record
         BankTransaction tx = new BankTransaction(
@@ -168,7 +184,8 @@ public class BankService {
                 toAccount,
                 amount,
                 TransactionStatus.SUCCESS,
-                "Transfer completed");
+                "Transfer completed (1% fee: LKR " + fee + " credited to " + BANK_FEE_ACCOUNT + ")"
+        );
         return transactionRepository.save(tx);
     }
 }

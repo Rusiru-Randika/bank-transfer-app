@@ -30,4 +30,8 @@ public interface BankTransactionRepository extends JpaRepository<BankTransaction
     // Additional helper for large-transfers page
     @Query("SELECT t FROM BankTransaction t WHERE t.status = com.example.bankapp.model.TransactionStatus.SUCCESS AND t.amount >= :min ORDER BY t.createdAt DESC")
     List<BankTransaction> findLargeTransfers(@Param("min") BigDecimal min);
+
+    // Total amount sent by an account (SUM of SUCCESS transfers where fromAccount = :account)
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM BankTransaction t WHERE t.fromAccount = :account AND t.status = com.example.bankapp.model.TransactionStatus.SUCCESS")
+    BigDecimal getTotalSentByAccount(@Param("account") String account);
 }

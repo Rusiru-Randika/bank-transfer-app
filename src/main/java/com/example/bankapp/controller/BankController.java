@@ -128,13 +128,7 @@ public class BankController {
                 .orElseThrow(() -> new BankException("Account " + accountNumber + " not found"));
 
         List<BankTransaction> history = bankService.getAccountHistory(accountNumber);
-        BigDecimal totalSent = history.stream()
-                .filter(t -> accountNumber.equals(t.getFromAccount())
-                        && !accountNumber.equals(t.getToAccount())
-                        && t.getStatus() != null
-                        && "SUCCESS".equals(t.getStatus().name()))
-                .map(BankTransaction::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalSent = bankService.getTotalSentByAccount(accountNumber);
 
         model.addAttribute("customer", customer);
         model.addAttribute("transactions", history);
