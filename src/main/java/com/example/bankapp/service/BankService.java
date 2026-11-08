@@ -10,6 +10,7 @@ import com.example.bankapp.repository.BankTransactionRepository;
 import com.example.bankapp.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -99,8 +100,7 @@ public class BankService {
                 accountNumber,
                 amount,
                 TransactionStatus.SUCCESS,
-                "Deposit to account " + accountNumber
-        );
+                "Deposit to account " + accountNumber);
         transactionRepository.save(tx);
     }
 
@@ -122,17 +122,18 @@ public class BankService {
                 accountNumber,
                 amount,
                 TransactionStatus.SUCCESS,
-                "Withdrawal from account " + accountNumber
-        );
+                "Withdrawal from account " + accountNumber);
         transactionRepository.save(tx);
     }
 
     /**
      * Money transfer between two customers.
-     * Rolls back on any exception (unchecked or checked).
+     * Task 10 experiment: runs without an active transaction to see what happens on
+     * failure.
      */
     @Transactional(rollbackFor = Exception.class)
-    public void transfer(String fromAccount, String toAccount, BigDecimal amount, boolean simulateFailure) {
+    // @Transactional(propagation = Propagation.SUPPORTS)
+    public BankTransaction transfer(String fromAccount, String toAccount, BigDecimal amount, boolean simulateFailure) {
         if (fromAccount == null || toAccount == null || fromAccount.equalsIgnoreCase(toAccount)) {
             throw new BankException("Sender and receiver accounts must be different");
         }
@@ -153,13 +154,13 @@ public class BankService {
             throw new InsufficientBalanceException(fromAccount);
         }
 
-        // Credit receiver
-        customerRepository.credit(toAccount, amount);
-
         // Check if rollback test was triggered
         if (simulateFailure) {
             throw new BankException("Simulated system failure occurred: All changes were rolled back!");
         }
+
+        // Credit receiver
+        customerRepository.credit(toAccount, amount);
 
         // Save SUCCESS transaction record
         BankTransaction tx = new BankTransaction(
@@ -167,8 +168,7 @@ public class BankService {
                 toAccount,
                 amount,
                 TransactionStatus.SUCCESS,
-                "Transfer completed"
-        );
-        transactionRepository.save(tx);
+                "Transfer completed");
+        return transactionRepository.save(tx);
     }
 }
