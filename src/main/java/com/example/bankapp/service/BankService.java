@@ -134,7 +134,7 @@ public class BankService {
     @Transactional(rollbackFor = Exception.class)
     public void transfer(String fromAccount, String toAccount, BigDecimal amount, boolean simulateFailure) {
         if (fromAccount == null || toAccount == null || fromAccount.equalsIgnoreCase(toAccount)) {
-            throw new BankException("Cannot transfer to the same account");
+            throw new BankException("Sender and receiver accounts must be different");
         }
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BankException("Transfer amount must be greater than zero");
@@ -144,12 +144,8 @@ public class BankService {
         customerRepository.getByAccountNumber(toAccount)
                 .orElseThrow(() -> new AccountNotFoundException(toAccount));
 
-        // Calculate 1% fee
-        BigDecimal fee = amount.multiply(FEE_PERCENTAGE).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal totalDebit = amount.add(fee);
-
         // Atomic debit with balance check
-        int rowsUpdated = customerRepository.debit(fromAccount, totalDebit);
+        int rowsUpdated = customerRepository.debit(fromAccount, amount);
         if (rowsUpdated == 0) {
             // Check if account exists or just had insufficient balance
             customerRepository.getByAccountNumber(fromAccount)
@@ -160,14 +156,9 @@ public class BankService {
         // Credit receiver
         customerRepository.credit(toAccount, amount);
 
-        // Credit fee to bank account (999999) if fee exists
-        if (fee.compareTo(BigDecimal.ZERO) > 0) {
-            customerRepository.credit(BANK_FEE_ACCOUNT, fee);
-        }
-
         // Check if rollback test was triggered
         if (simulateFailure) {
-            throw new BankException("Simulated system failure occurred after debit - transaction rolled back!");
+            throw new BankException("Simulated system failure occurred: All changes were rolled back!");
         }
 
         // Save SUCCESS transaction record
@@ -176,7 +167,7 @@ public class BankService {
                 toAccount,
                 amount,
                 TransactionStatus.SUCCESS,
-                "Transfer completed (fee: LKR " + fee + ")"
+                "Transfer completed"
         );
         transactionRepository.save(tx);
     }

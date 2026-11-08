@@ -27,21 +27,21 @@ public class DataLoader implements CommandLineRunner {
 
             Customer c1 = new Customer();
             c1.setAccountNumber("100001");
-            c1.setFullName("Alice Doe");
-            c1.setEmail("alice@example.com");
-            c1.setBalance(new BigDecimal("25000.00"));
+            c1.setFullName("Kamal");
+            c1.setEmail("kamal@example.com");
+            c1.setBalance(new BigDecimal("50000.00"));
 
             Customer c2 = new Customer();
             c2.setAccountNumber("100002");
-            c2.setFullName("Bob Doe");
-            c2.setEmail("bob@example.com");
-            c2.setBalance(new BigDecimal("30000.00"));
+            c2.setFullName("Nimali");
+            c2.setEmail("nimali@example.com");
+            c2.setBalance(new BigDecimal("25000.00"));
 
             Customer c3 = new Customer();
             c3.setAccountNumber("100003");
-            c3.setFullName("Charlie Doe");
-            c3.setEmail("charlie@example.com");
-            c3.setBalance(new BigDecimal("30000.00"));
+            c3.setFullName("Saman");
+            c3.setEmail("saman@example.com");
+            c3.setBalance(new BigDecimal("10000.00"));
 
             // Bank fee revenue account (account 999999) with 0 initial balance
             Customer bankFeeAccount = new Customer();
